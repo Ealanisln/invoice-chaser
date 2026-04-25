@@ -3,10 +3,10 @@
 > Tu agente que cobra por ti. Lee tu Gmail, identifica facturas vencidas y redacta 3 follow-ups con tonos escalados. Tú apruebas con un click.
 
 **Hackathon submission**: Vercel "Zero to Agent" — **Track 2 (v0 + MCPs)**.
-**Powered by**: v0 + Vercel AI SDK v6 + Composio Gmail MCP + OpenAI `gpt-4o-mini`.
+**Powered by**: v0 + Vercel AI SDK v6 + Composio Gmail MCP + Google Gemini `2.5-flash`.
 
 - 🎥 **Demo video**: _(pegar URL Loom/YouTube aquí al final)_
-- 🌐 **Live**: _(pegar URL Vercel aquí al final)_
+- 🌐 **Live**: https://invoice-chaser-eight.vercel.app
 
 ---
 
