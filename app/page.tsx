@@ -6,7 +6,7 @@ import type { UIMessage } from 'ai';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { SendHorizontal, FileText, Inbox } from 'lucide-react';
+import { SendHorizontal, FileText, Inbox, Copy, Check } from 'lucide-react';
 
 type Invoice = {
   id: string;
@@ -24,6 +24,34 @@ type Invoice = {
 
 function formatMXN(amount: number): string {
   return `$${amount.toLocaleString('es-MX')} MXN`;
+}
+
+const URL_OR_MD_LINK = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"')]+)/g;
+
+function renderRichText(text: string): React.ReactNode[] {
+  const out: React.ReactNode[] = [];
+  let last = 0;
+  let match: RegExpExecArray | null;
+  URL_OR_MD_LINK.lastIndex = 0;
+  while ((match = URL_OR_MD_LINK.exec(text)) !== null) {
+    if (match.index > last) out.push(text.slice(last, match.index));
+    const label = match[1] ?? match[3];
+    const href = match[2] ?? match[3];
+    out.push(
+      <a
+        key={`${match.index}-${href}`}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-emerald-400 underline underline-offset-2 hover:text-emerald-300 break-all"
+      >
+        {label}
+      </a>,
+    );
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
 }
 
 function getOverdueBadgeClass(days: number): string {
@@ -84,7 +112,13 @@ function ToolPill({ toolName }: { toolName: string }) {
   );
 }
 
-function MessageBubble({ message }: { message: UIMessage }) {
+function MessageBubble({
+  message,
+  onCopy,
+}: {
+  message: UIMessage;
+  onCopy: (text: string) => void;
+}) {
   const isUser = message.role === 'user';
 
   return (
@@ -101,10 +135,25 @@ function MessageBubble({ message }: { message: UIMessage }) {
           const p = part as { type: string; text?: string; state?: string };
 
           if (p.type === 'text' && p.text) {
+            const looksLikeEmail = /(^|\n)\s*(\*\*)?\s*(asunto|subject)\s*:/i.test(
+              p.text.trim().split('\n').slice(0, 3).join('\n'),
+            );
+            const showCopy = !isUser && looksLikeEmail;
             return (
-              <p key={i} className="text-sm leading-relaxed whitespace-pre-wrap">
-                {p.text}
-              </p>
+              <div key={i} className="space-y-2">
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                  {renderRichText(p.text)}
+                </p>
+                {showCopy && (
+                  <button
+                    onClick={() => onCopy(p.text!)}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-colors"
+                  >
+                    <Copy className="h-3 w-3" />
+                    Copiar email
+                  </button>
+                )}
+              </div>
             );
           }
 
@@ -194,8 +243,28 @@ const EXAMPLE_PROMPTS = [
 export default function InvoiceChaser() {
   const [input, setInput] = useState('');
   const [hasStarted, setHasStarted] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 2200);
+  }, []);
+
+  const handleCopy = useCallback(
+    async (text: string) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast('Email copiado al portapapeles');
+      } catch {
+        showToast('No se pudo copiar');
+      }
+    },
+    [showToast],
+  );
 
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({ api: '/api/chat' }),
@@ -287,7 +356,7 @@ export default function InvoiceChaser() {
             ) : (
               <div className="py-3 space-y-0.5">
                 {messages.map((m) => (
-                  <MessageBubble key={m.id} message={m} />
+                  <MessageBubble key={m.id} message={m} onCopy={handleCopy} />
                 ))}
                 {isBusy && <TypingIndicator />}
                 <div ref={messagesEndRef} />
@@ -389,6 +458,15 @@ export default function InvoiceChaser() {
           )}
         </div>
       </div>
+
+      {toast && (
+        <div className="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
+          <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/15 backdrop-blur-md px-4 py-2.5 text-sm font-medium text-emerald-300 shadow-lg shadow-emerald-500/10">
+            <Check className="h-4 w-4" />
+            {toast}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
