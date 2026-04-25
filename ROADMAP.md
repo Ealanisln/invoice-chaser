@@ -24,7 +24,17 @@ curl "https://generativelanguage.googleapis.com/v1beta/models?key=$GOOGLE_GENERA
 
 ---
 
-## Plan minuto a minuto
+## Bitácora real de la sesión (lo que efectivamente pasó)
+
+| Bloque | Plan original | Realidad |
+|---|---|---|
+| Pre-flight | Mock + agent + deploy en 2h | Hecho fuera de sesión: `lib/mock-inbox.ts`, `app/api/{ping,chat}/route.ts`, deploy a `invoice-chaser-eight.vercel.app` |
+| 0:30–2:00 (UI) | v0 con 1 generación | v0 MCP directo desde Claude Code, página dark fintech (zinc/emerald) |
+| 2:00–3:15 (agente) | mock + tools | Ya existía, solo cambio de modelo OpenAI → `google('gemini-2.5-flash-lite')` |
+| 3:15–3:55 (Composio) | SSE transport | Composio usa `streamable-http` (no SSE) + auth `x-consumer-api-key`. Wired con `@ai-sdk/mcp` (paquete separado en v6, no `'ai'` directo). 7 meta-tools cargadas (COMPOSIO_SEARCH_TOOLS, COMPOSIO_MANAGE_CONNECTIONS, etc.) — el agente usa mock por default y Composio bajo demanda explícita |
+| Quota issue | — | `gemini-2.5-flash` agotó 20 RPD del free tier. Switch a `gemini-2.5-flash-lite` (1000 RPD) sin perder calidad para el demo |
+
+## Plan minuto a minuto (referencia original)
 
 ### **0:00 – 0:30 — Setup, hello-world API, deploy**
 
