@@ -8,7 +8,9 @@ import {
 import { createMCPClient } from '@ai-sdk/mcp';
 import { google } from '@ai-sdk/google';
 import { z } from 'zod';
+import { headers } from 'next/headers';
 import { mockEmails } from '@/lib/mock-inbox';
+import { ratelimit } from '@/lib/ratelimit';
 
 export const maxDuration = 30;
 
@@ -48,6 +50,23 @@ const localTools = {
 };
 
 export async function POST(req: Request) {
+  if (ratelimit) {
+    const h = await headers();
+    const ip = (h.get('x-forwarded-for') ?? '127.0.0.1').split(',')[0].trim();
+    const { success, reset } = await ratelimit.limit(ip);
+    if (!success) {
+      const resetSeconds = Math.max(1, Math.ceil((reset - Date.now()) / 1000));
+      return Response.json(
+        {
+          error:
+            'Llegaste al límite del demo (10 mensajes/día). Escríbeme a emmanuel@alanis.dev para acceso completo.',
+          resetInSeconds: resetSeconds,
+        },
+        { status: 429, headers: { 'Retry-After': String(resetSeconds) } },
+      );
+    }
+  }
+
   const { messages }: { messages: UIMessage[] } = await req.json();
 
   let mcpTools: Record<string, unknown> = {};
